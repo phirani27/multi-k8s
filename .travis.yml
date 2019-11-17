@@ -1,10 +1,13 @@
 sudo: required
 services:
   - docker #install docker
-
+env:
+  global:
+    - SHA=$(git rev-parse HEAD)
+    - CLOUDSDK_CORE_DISABLE_PROMPTS=1
 before_install:
   #Given by travis encrypt
-  openssl aes-256-cbc -K $encrypted_0c35eebf403c_key -iv $encrypted_0c35eebf403c_iv -in service-account.json.enc -out service-account.json -d
+  - openssl aes-256-cbc -K $encrypted_0c35eebf403c_key -iv $encrypted_0c35eebf403c_iv -in service-account.json.enc -out service-account.json -d
   #install google cloud sdk
   - curl https://sdk.cloud.google.com | bash > /dev/null;
   - source $HOME/google-cloud-sdk/path.bash.inc
@@ -19,6 +22,34 @@ before_install:
   #gem install travis
   # travis login --com
   #travis encrypt-file service-account.json -r phirani27/multi-k8s --com
+
+  #set project
+  - gcloud config set project multi-k8s-259019
+  #set zone
+  - gcloud config set compute/zone asia-south1-a
+  - gcloud container clusters get-credentials multi-cluster
+  #login to docker
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+  #build the image for testing
+  - docker build -t phirani/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run phirani/react-test npm test -- --coverage
+
+deploy: 
+  provider: script
+  script: bash ./deploy.sh
+  on:
+    branch: master
+
+
+#set secret key from google cloud shell
+#gcloud config set project <project name> 
+#gcloud config set compute/zone <zone_name>
+#gcloud container clusters get-credentials multi-cluster
+#kubectl create secret generic pgpassword --from-literal PGPASSWORD=mypgpassword123
+#setup helm on google cloud
 
 
 
